@@ -13,7 +13,7 @@ import DocumentCard from "./DocumentCard";
 import ErrorBanner from "./ErrorBanner";
 import Loading from "./Loading";
 import fetcher from "../lib/fetcher";
-import useSWRImmutable from "swr/immutable";
+import useSWR from "swr";
 import { useDisclosure } from "@chakra-ui/react";
 import UploadDocument from "./UploadDocument";
 
@@ -93,7 +93,7 @@ function DocSection({ title, docs, onUpload }) {
             ) : (
                 <Stack spacing={3}>
                     {docs.map((doc) => (
-                        <DocumentCard key={doc.hash} {...doc} />
+                        <DocumentCard key={doc.contentHash} {...doc} />
                     ))}
                 </Stack>
             )}
@@ -103,7 +103,7 @@ function DocSection({ title, docs, onUpload }) {
 
 /* ── Documents ───────────────────────────────────────────────── */
 function Documents() {
-    const { data, error } = useSWRImmutable("http://localhost:3001/api/doc/list", fetcher);
+    const { data, error } = useSWR("http://localhost:3001/api/doc/list", fetcher, { refreshInterval: 3000 });
     const { isOpen, onOpen, onClose } = useDisclosure();
 
     if (error) {

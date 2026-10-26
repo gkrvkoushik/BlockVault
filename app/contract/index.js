@@ -1,5 +1,4 @@
 const { ethers } = require('ethers');
-const fs = require('fs');
 const { abi } = require('./engine.json');
 
 const config = require('../config');
@@ -17,7 +16,8 @@ class DocumentRegistryClient {
         this.contract = new ethers.Contract(this.contractAddress, abi, this.wallet);
     }
 
-    async storeDocument(docID, docType, contentHash, creator, owner) {
+    async storeDocument(docID, docType, contentHash, owner, creator) {
+        console.log('storeDocument contractAddress:', this.contractAddress, 'adminAddress:', this.wallet.address);
         const tx = await this.contract.storeDocument(docID, docType, contentHash, owner, creator);
         await tx.wait();
         return tx.hash;
@@ -26,6 +26,7 @@ class DocumentRegistryClient {
     async fetchMyIds(privateKey) {
         const wallet = new ethers.Wallet(privateKey, this.provider);
         const contract = new ethers.Contract(this.contractAddress, abi, wallet);
+        console.log('fetchMyIds contractAddress:', this.contractAddress, 'walletAddress:', wallet.address);
         const ids = await contract.fetchMyIds();
         return ids;
     }
@@ -40,8 +41,8 @@ class DocumentRegistryClient {
             docId,
             docType,
             contentHash: _contentHash,
-            owner,
-            creator,
+            owner: owner,
+            creator: creator,
         };
     }    
 
@@ -50,8 +51,10 @@ class DocumentRegistryClient {
         return exists;
     }    
 
-    async editDocument(contentHash, newDocType, newContentHash) {
-        const tx = await this.contract.editDocument(contentHash, newDocType, newContentHash);
+    async editDocument(contentHash, newDocType, newContentHash, privateKey) {
+        const wallet = new ethers.Wallet(privateKey, this.provider);
+        const contract = new ethers.Contract(this.contractAddress, abi, wallet);
+        const tx = await contract.editDocument(contentHash, newDocType, newContentHash);
         await tx.wait();
         return tx.hash;
     }    
@@ -64,14 +67,6 @@ class DocumentRegistryClient {
 
     async grantRole(userAddr, roleType) {
         const tx = await this.contract.grantRole(userAddr, roleType);
-        await tx.wait();
-        return tx.hash;
-    }
-
-    async shareUserAccess(contentHash, toAddress, privateKey) {
-        const wallet = new ethers.Wallet(privateKey);
-        const contract = new ethers.Contract(this.contractAddress, abi, wallet);
-        const tx = await contract.shareUserAccess(contentHash, toAddress);
         await tx.wait();
         return tx.hash;
     }
@@ -90,12 +85,12 @@ class DocumentRegistryClient {
     }
 
     async shareUserAccess(contentHash, toAddress, privateKey) {
-        const wallet = new ethers.Wallet(privateKey);
+        const wallet = new ethers.Wallet(privateKey, this.provider);
         const contract = new ethers.Contract(this.contractAddress, abi, wallet);
         const tx = await contract.shareUserAccess(contentHash, toAddress);
         await tx.wait();
         return tx.hash;
-    }    
+    }
 }
 
 module.exports = new DocumentRegistryClient;

@@ -3,7 +3,7 @@ const fs = require('fs');
 
 class FileHasher {
     async hash(filePath) {
-        const hash = crypto.createHash('sha1');
+        const hash = crypto.createHash('sha256');
         const stream = fs.createReadStream(filePath);
 
         return new Promise((resolve, reject) => {

@@ -35,7 +35,7 @@ function EditDocument({ isOpen, onClose, hash }) {
 
         const form = new FormData();
         form.append("file", file);
-        form.append("doc_type", docType);
+        form.append("new_doc_type", docType);
 
         setIsLoading(true);
 

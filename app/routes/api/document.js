@@ -23,34 +23,49 @@ router.post('/upload', multer({ storage }).single('file'), async (req, res) => {
     const { doc_type, doc_id, owner } = req.body;
     const { id: user_id } = req.user;
     const docHash = await fileHasher.hash(file.path);
-    await db.Document.create({
-        contentHash: docHash,
-        user_id,
-        path: file.path,
-    });
+
     let owner_address;
     if (owner) {
         const _owner = await db.User.findOne({ where: { username: owner } });
+        if (!_owner) return res.status(404).send({ code: 404, message: 'Owner user not found' });
         owner_address = _owner.public_key;
     } else {
         owner_address = req.user.address;
     }
 
-    await contract.storeDocument(doc_id, doc_type, docHash, req.user.address, owner_address);
+    try {
+        console.log('storeDocument:', { doc_id, doc_type, docHash, owner_address, creator: req.user.address });
+        await contract.storeDocument(doc_id, doc_type, docHash, owner_address, req.user.address);
+        console.log('storeDocument success, verifying fetchMyIds...');
+        const verify = await contract.fetchMyIds(req.user.private_key);
+        console.log('fetchMyIds after store:', verify);
+    } catch (err) {
+        console.error('storeDocument error:', err.info?.error?.message || err.message);
+        return res.status(500).send({ code: 500, message: err.info?.error?.message || err.message || 'Blockchain error' });
+    }
+
+    await db.Document.create({ contentHash: docHash, user_id, path: file.path });
     res.status(201).send();
 });
 
 router.get('/list', async (req, res) => {
+    console.log('user address from JWT:', req.user.address);
     const docs = await contract.fetchMyIds(req.user.private_key);
+    console.log('fetchMyIds for', req.user.username, ':', docs);
     const issuedDocs = [];
     const uploadedDocs = [];
     for (let i = 0; i < docs.length; i++) {
         const doc = await contract.fetchDocumentById(docs[i], req.user.private_key);
         const { docId, docType, contentHash, owner, creator } = doc;
+        console.log('doc:', { docId, docType, contentHash, owner, creator, userAddr: req.user.address });
         const _owner = await db.User.findOne({ where: { public_key: owner } });
         const _creator = await db.User.findOne({ where: { public_key: creator } });
         const docInDb = await db.Document.findOne({ where: { contentHash } });
-        if (creator === req.user.address) {
+        if (!_owner || !_creator || !docInDb) {
+            console.log('skipping doc, missing:', { _owner: !!_owner, _creator: !!_creator, docInDb: !!docInDb });
+            continue;
+        }
+        if (creator.toLowerCase() === req.user.address.toLowerCase()) {
             uploadedDocs.push({
                 docId,
                 docType,
@@ -77,26 +92,29 @@ router.get('/list', async (req, res) => {
 
 router.get('/file/:hash', async (req, res) => {
     const { hash } = req.params;
-    // return the physical file
-    const document = await db.Document.findOne({ where: { contentHash: hash, user_id: req.user.id } });
+    const document = await db.Document.findOne({ where: { contentHash: hash } });
     if (!document) {
         return res.status(404).send({ code: 404, message: 'Document not found' });
     }
-
     res.setHeader('Content-Disposition', `attachment; filename=${path.basename(document.path)}`)
     res.sendFile(document.path);
 });
 
-router.post('/edit/:hash',  multer({ storage }).single('file'), async (req, res) => {
+router.post('/edit/:hash', multer({ storage }).single('file'), async (req, res) => {
     const { hash } = req.params;
     const { new_doc_type } = req.body;
+    if (!new_doc_type) return res.status(400).send({ code: 400, message: 'new_doc_type is required' });
+    if (!req.file) return res.status(400).send({ code: 400, message: 'file is required' });
     const doc = await db.Document.findOne({ where: { contentHash: hash, user_id: req.user.id } });
     if (!doc) {
         return res.status(404).send({ code: 404, message: 'Document not found' });
     }
-    
     const docHash = await fileHasher.hash(req.file.path);
-    await contract.editDocument(hash, new_doc_type, docHash);
+    try {
+        await contract.editDocument(hash, new_doc_type, docHash, req.user.private_key);
+    } catch (err) {
+        return res.status(500).send({ code: 500, message: err.message || 'Blockchain error' });
+    }
     await doc.update({ contentHash: docHash, path: req.file.path });
     res.status(200).send();
 });

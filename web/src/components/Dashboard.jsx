@@ -17,7 +17,7 @@ import UploadDocument from "./UploadDocument";
 import checkLogin from "../lib/checkLogin";
 import { useDisclosure } from "@chakra-ui/react";
 import fetcher from "../lib/fetcher";
-import useSWRImmutable from "swr/immutable";
+import useSWR from "swr";
 
 function StatCard({ label, value }) {
     return (
@@ -49,7 +49,7 @@ function Dashboard() {
     }
 
     // Reuse the same doc list to derive stats
-    const { data } = useSWRImmutable("http://localhost:3001/api/doc/list", fetcher);
+    const { data } = useSWR("http://localhost:3001/api/doc/list", fetcher, { refreshInterval: 3000 });
     const totalDocs = data
         ? (data.issued_docs?.length ?? 0) + (data.uploaded_docs?.length ?? 0)
         : null;

@@ -4,10 +4,10 @@ module.exports = (req, res, next) => {
         return res.status(400).send({ code: 400, message: 'Request body is missing' });
     }
 
-    const { username, email, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!username && !email) {
-        return res.status(400).send({ code: 400, message: 'username or email is required' });
+    if (!email) {
+        return res.status(400).send({ code: 400, message: 'email or username is required' });
     }
     if (!password) {
         return res.status(400).send({ code: 400, message: 'password is required' });

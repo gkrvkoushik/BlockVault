@@ -51,7 +51,7 @@ router.post('/signup', signupValidate, async (req, res) => {
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const { privateKey: private_key, address: public_key } = contract.createWallet();
-    await db.User.create({
+    const newUser = await db.User.create({
         username,
         name,
         email,
@@ -59,7 +59,13 @@ router.post('/signup', signupValidate, async (req, res) => {
         private_key,
         public_key,
     });
-    await contract.createUser(username, public_key);
+    try {
+        await contract.createUser(username, public_key);
+    } catch (err) {
+        console.error('createUser error:', err.message);
+        await newUser.destroy();
+        return res.status(500).json({ code: 500, message: err.message || 'Blockchain registration failed.' });
+    }
     res.status(200).json({ code: 200, message: 'User created' })
 });
 

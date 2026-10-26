@@ -54,8 +54,11 @@ function UploadDocument({ isOpen, onClose }) {
             },
             body: form,
         })
-            .then((response) => {
-                // Preserve original behavior: show success toast on any response
+            .then(async (response) => {
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.message || 'Upload failed');
+                }
                 toast({
                     title: "Document uploaded",
                     description: "Your document has been uploaded successfully.",
